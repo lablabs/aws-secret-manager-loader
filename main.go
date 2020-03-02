@@ -88,6 +88,11 @@ func getSecret(secretName string) *string {
 	} else {
 		decodedBinarySecretBytes := make([]byte, base64.StdEncoding.DecodedLen(len(result.SecretBinary)))
 
+		_, err := base64.StdEncoding.Decode(decodedBinarySecretBytes, result.SecretBinary)
+		if err != nil {
+			panic(err)
+		}
+
 		secretName := strings.Split(*result.Name, "/")
 		f, err := os.Create(secretsPath + secretName[len(secretName)-1])
 
