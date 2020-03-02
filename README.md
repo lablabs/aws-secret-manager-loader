@@ -5,7 +5,7 @@ Simple go application to load secrets from AWS Secrets Manager and output them t
 ## Build
 
 ```
-go build -o aws_sm_loader main.go
+CGO_ENABLED=0 GOOS=linux go build -o aws_sm_loader main.go
 ```
 
 ## Usage
