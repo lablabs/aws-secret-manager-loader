@@ -5,7 +5,6 @@ package main
 // https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/setting-up.html
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,13 +85,6 @@ func getSecret(secretName string) *string {
 	if result.SecretString != nil {
 		return result.SecretString
 	} else {
-		decodedBinarySecretBytes := make([]byte, base64.StdEncoding.DecodedLen(len(result.SecretBinary)))
-
-		_, err := base64.StdEncoding.Decode(decodedBinarySecretBytes, result.SecretBinary)
-		if err != nil {
-			panic(err)
-		}
-
 		secretName := strings.Split(*result.Name, "/")
 		f, err := os.Create(secretsPath + secretName[len(secretName)-1])
 
@@ -101,7 +93,7 @@ func getSecret(secretName string) *string {
 		}
 		defer f.Close()
 
-		if _, err := f.Write(decodedBinarySecretBytes); err != nil {
+		if _, err := f.Write(result.SecretBinary); err != nil {
 			panic(err)
 		}
 		if err := f.Sync(); err != nil {
