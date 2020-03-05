@@ -32,5 +32,20 @@ ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["bash", "-c", "eval $(./aws_sm_loader) && exec printenv"]
 ```
 
+## Writing binary secrets to file
 
+If secret contains binary data it will be written to file. Value after last `/` from secret name will be used as filename.
+Path for files can be set using `SM_SECRETS_PATH` env variable. Default is current directory.
+
+## Ignoring secrets
+
+If tag `aws_sm_loader_ignore` with value `true` is set for a secret, it won't be exported into the env.
+
+## File permissions for binary secrets
+
+File permissions for secrets that will be outputted into files can be set using `SM_SECRETS_FILEMODE` env variable.
+
+Values in *octal permissions notation* with leading zero is expected.
+
+Default value is read only: `0440`.
 
