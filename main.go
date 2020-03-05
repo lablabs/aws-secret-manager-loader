@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -20,6 +21,11 @@ import (
 var (
 	region      string
 	secretsPath string
+	fileMode    os.FileMode = 0440
+)
+
+const (
+	ignoreTag = "aws_sm_loader_ignore"
 )
 
 type Secret struct {
@@ -99,6 +105,8 @@ func getSecret(secretName string) *string {
 		if err := f.Sync(); err != nil {
 			panic(err)
 		}
+
+		f.Chmod(fileMode)
 		return nil
 	}
 }
@@ -123,8 +131,8 @@ func listAllSecrets() *secretsmanager.ListSecretsOutput {
 func filterSecrets(targetTags map[string]string) []string {
 	allSecrets := listAllSecrets()
 	var filteredSecrets []string
-	for _, secret := range allSecrets.SecretList {
 
+	for _, secret := range allSecrets.SecretList {
 		// If secret has no tags, skip it
 		if len(secret.Tags) == 0 {
 			continue
@@ -132,8 +140,18 @@ func filterSecrets(targetTags map[string]string) []string {
 
 		// Convert tags on resource into map
 		resourceTags := make(map[string]string)
+		ignored := false
 		for _, tag := range secret.Tags {
+
+			if *tag.Key == ignoreTag && *tag.Value == "true" {
+				ignored = true
+				break
+			}
 			resourceTags[*tag.Key] = *tag.Value
+		}
+
+		if ignored {
+			continue
 		}
 
 		// Check if resource has all required tags specified in env
@@ -201,6 +219,14 @@ func main() {
 	region = os.Getenv("AWS_REGION")
 	secretsPath = os.Getenv("SM_SECRETS_PATH")
 	sm_tags := filterEnvVars("SM_TAG_")
+
+	if os.Getenv("SM_SECRETS_FILEMODE") != "" {
+		fm, err := strconv.ParseInt(os.Getenv("SM_SECRETS_FILEMODE"), 0, 32)
+		if err != nil {
+			panic(err)
+		}
+		fileMode = os.FileMode(int(fm))
+	}
 
 	if len(sm_tags) == 0 {
 		err := errors.New("No tags for secrets filtering specified")
