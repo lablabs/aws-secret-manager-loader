@@ -119,7 +119,9 @@ func listAllSecrets() *secretsmanager.ListSecretsOutput {
 
 	svc := secretsmanager.New(s,
 		aws.NewConfig().WithRegion(region))
-	input := &secretsmanager.ListSecretsInput{}
+	input := &secretsmanager.ListSecretsInput{
+		MaxResults: aws.Int64(100),
+	}
 
 	result, err := svc.ListSecrets(input)
 	if err != nil {
