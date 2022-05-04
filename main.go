@@ -111,7 +111,7 @@ func getSecret(secretName string) *string {
 	}
 }
 
-func listAllSecrets() *secretsmanager.ListSecretsOutput {
+func listAllSecrets() []*secretsmanager.ListSecretsOutput {
 	s, err := session.NewSession()
 	if err != nil {
 		panic(err)
@@ -119,54 +119,73 @@ func listAllSecrets() *secretsmanager.ListSecretsOutput {
 
 	svc := secretsmanager.New(s,
 		aws.NewConfig().WithRegion(region))
-	input := &secretsmanager.ListSecretsInput{
-		MaxResults: aws.Int64(100),
+
+	result := &secretsmanager.ListSecretsOutput{
+		NextToken: nil,
 	}
 
-	result, err := svc.ListSecrets(input)
-	if err != nil {
-		fmt.Println(err.Error())
+	var results []*secretsmanager.ListSecretsOutput
+
+	for {
+		input := &secretsmanager.ListSecretsInput{
+			MaxResults: aws.Int64(100),
+			NextToken:  result.NextToken,
+		}
+
+		result, err = svc.ListSecrets(input)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		results = append(results, result)
+
+		if result.NextToken == nil {
+			break
+		}
 	}
-	return result
+
+	return results
 }
 
 func filterSecrets(targetTags map[string]string) []string {
 	allSecrets := listAllSecrets()
 	var filteredSecrets []string
 
-	for _, secret := range allSecrets.SecretList {
-		// If secret has no tags, skip it
-		if len(secret.Tags) == 0 {
-			continue
-		}
-
-		// Convert tags on resource into map
-		resourceTags := make(map[string]string)
-		ignored := false
-		for _, tag := range secret.Tags {
-
-			if *tag.Key == ignoreTag && *tag.Value == "true" {
-				ignored = true
-				break
+	for _, secretOutput := range allSecrets {
+		for _, secret := range secretOutput.SecretList {
+			// If secret has no tags, skip it
+			if len(secret.Tags) == 0 {
+				continue
 			}
-			resourceTags[*tag.Key] = *tag.Value
-		}
 
-		if ignored {
-			continue
-		}
+			// Convert tags on resource into map
+			resourceTags := make(map[string]string)
+			ignored := false
+			for _, tag := range secret.Tags {
 
-		// Check if resource has all required tags specified in env
-		hasAllTags := true
-		for key, value := range targetTags {
-			if resourceTags[key] != value {
-				hasAllTags = false
-				break
+				if *tag.Key == ignoreTag && *tag.Value == "true" {
+					ignored = true
+					break
+				}
+				resourceTags[*tag.Key] = *tag.Value
 			}
-		}
 
-		if hasAllTags {
-			filteredSecrets = append(filteredSecrets, *secret.Name)
+			if ignored {
+				continue
+			}
+
+			// Check if resource has all required tags specified in env
+			hasAllTags := true
+			for key, value := range targetTags {
+				if resourceTags[key] != value {
+					hasAllTags = false
+					break
+				}
+			}
+
+			if hasAllTags {
+				filteredSecrets = append(filteredSecrets, *secret.Name)
+			}
 		}
 	}
 
